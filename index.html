@@ -434,6 +434,26 @@
   }
 
   // ---------- Camera ----------
+  async function startCameraBasic(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      video.classList.add("ready");
+      track = stream.getVideoTracks()[0];
+      checkTorchSupport();
+      viewfinder.classList.add("active");
+      permState.classList.remove("show");
+      hint.style.display = "";
+      scanning = true;
+      lastValue = ""; lastTime = 0;
+      tick();
+      countCameras();
+    }catch(err){
+      showPermissionError(err);
+    }
+  }
+
   async function startCamera(){
     stopCamera();
     permState.classList.remove("show");
@@ -496,9 +516,18 @@
     } else if (err && err.name === "NotReadableError"){
       permTitle.textContent = "Camera is busy";
       permMsg.textContent = "Another app may be using the camera right now. Close it and tap Enable camera again, or scan from a saved photo instead.";
+    } else if (err && err.name === "OverconstrainedError"){
+      permTitle.textContent = "Camera mode unsupported";
+      permMsg.textContent = "Retrying with basic camera settings…";
+      setTimeout(startCameraBasic, 300);
+      return;
+    } else if (err && err.name === "SecurityError"){
+      permTitle.textContent = "Blocked by browser settings";
+      permMsg.textContent = "Camera access is disabled for this context (often inside an embedded preview/iframe). Open the page directly in a full browser tab, or scan from a saved photo instead.";
     } else {
       permTitle.textContent = "Camera unavailable";
-      permMsg.textContent = "Couldn't start the camera. You can scan a QR code from a saved photo instead.";
+      const detail = err && (err.message || err.name) ? (err.name || "") + (err.message ? ": " + err.message : "") : "Unknown error";
+      permMsg.textContent = "Couldn't start the camera (" + detail + "). You can scan a QR code from a saved photo instead.";
     }
   }
 
